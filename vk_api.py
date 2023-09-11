@@ -1,7 +1,15 @@
 import requests
 
 
-def get_wall_upload_server(group_id: str, access_token: str, api_version: str):
+class VKApiError(Exception):
+    def __init__(self, error):
+        self.error = error
+
+    def __str__(self):
+        return "Error code [{error_code}]: {error_msg}".format(**self.error)
+
+
+def get_upload_url(group_id: str, access_token: str, api_version: str) -> str:
     response = requests.post(
         "https://api.vk.com/method/photos.getWallUploadServer",
         data={
@@ -12,14 +20,14 @@ def get_wall_upload_server(group_id: str, access_token: str, api_version: str):
     )
     response.raise_for_status()
 
-    wall_upload_server = response.json()
-    if wall_upload_server.get("error"):
-        raise Exception(wall_upload_server["error"].get("error_msg"))
+    uploaded = response.json()
+    if uploaded.get("error"):
+        raise VKApiError(uploaded.get("error"))
 
-    return wall_upload_server["response"].get("upload_url")
+    return uploaded["response"].get("upload_url")
 
 
-def upload_photo(upload_url: str, file_path: str):
+def upload_photo(upload_url: str, file_path: str) -> dict:
     with open(file_path, "rb") as f:
         response = requests.post(upload_url, files={"photo": f})
     response.raise_for_status()
@@ -28,19 +36,25 @@ def upload_photo(upload_url: str, file_path: str):
 
 def save_wall_photo(
     group_id: str, access_token: str, api_version: str, uploaded_photo: dict
-):
+) -> dict:
     payload = {
         "group_id": group_id,
         "access_token": access_token,
         "v": api_version,
+        "server": uploaded_photo["server"],
+        "hash": uploaded_photo["hash"],
+        "photo": uploaded_photo["photo"],
     }
-    payload.update(uploaded_photo)
 
     response = requests.post(
         "https://api.vk.com/method/photos.saveWallPhoto", data=payload
     )
     response.raise_for_status()
-    return response.json()
+    saved_photos = response.json()
+    if saved_photos.get("error"):
+        raise VKApiError(saved_photos.get("error"))
+
+    return saved_photos
 
 
 def create_wall_post(
@@ -50,7 +64,7 @@ def create_wall_post(
     attachments: str,
     message: str = None,
     from_group: int = 1,
-):
+) -> dict:
     response = requests.post(
         "https://api.vk.com/method/wall.post",
         data={
@@ -63,7 +77,11 @@ def create_wall_post(
         },
     )
     response.raise_for_status()
-    return response.json()
+    posted = response.json()
+    if posted.get("error"):
+        raise VKApiError(posted.get("error"))
+
+    return posted
 
 
 def publish(
@@ -73,15 +91,13 @@ def publish(
     api_version: str,
     message: str = None,
 ):
-    upload_url = get_wall_upload_server(group_id, access_token, api_version)
+    upload_url = get_upload_url(group_id, access_token, api_version)
     uploaded_photo = upload_photo(upload_url, file_path)
     saved_photos = save_wall_photo(group_id, access_token, api_version, uploaded_photo)
-
-    for photo in saved_photos.get("response"):
-        create_wall_post(
-            group_id,
-            access_token,
-            api_version,
-            attachments="photo{owner_id}_{id}".format(**photo),
-            message=message,
-        )
+    create_wall_post(
+        group_id,
+        access_token,
+        api_version,
+        attachments="photo{owner_id}_{id}".format(**saved_photos.get("response")[0]),
+        message=message,
+    )

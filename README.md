@@ -1,6 +1,6 @@
 # vk-xkcd
 
-Downloads a random comics from https://xkcd.com and publishes to the group vk.com.
+Downloads a random comic from https://xkcd.com and publishes to the group vk.com.
 
 ## Installing
 
