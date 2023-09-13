@@ -20,11 +20,11 @@ def get_upload_url(group_id: str, access_token: str, api_version: str) -> str:
     )
     response.raise_for_status()
 
-    uploaded = response.json()
-    if uploaded.get("error"):
-        raise VKApiError(uploaded.get("error"))
+    uploaded_url = response.json()
+    if uploaded_url.get("error"):
+        raise VKApiError(uploaded_url.get("error"))
 
-    return uploaded["response"].get("upload_url")
+    return uploaded_url["response"].get("upload_url")
 
 
 def upload_photo(upload_url: str, file_path: str) -> dict:
@@ -35,15 +35,20 @@ def upload_photo(upload_url: str, file_path: str) -> dict:
 
 
 def save_wall_photo(
-    group_id: str, access_token: str, api_version: str, uploaded_photo: dict
+        group_id: str,
+        access_token: str,
+        api_version: str,
+        uploaded_server_id: int,
+        uploaded_hash: str,
+        uploaded_photo: str,
 ) -> dict:
     payload = {
         "group_id": group_id,
         "access_token": access_token,
         "v": api_version,
-        "server": uploaded_photo["server"],
-        "hash": uploaded_photo["hash"],
-        "photo": uploaded_photo["photo"],
+        "server": uploaded_server_id,
+        "hash": uploaded_hash,
+        "photo": uploaded_photo,
     }
 
     response = requests.post(
@@ -77,11 +82,11 @@ def create_wall_post(
         },
     )
     response.raise_for_status()
-    posted = response.json()
-    if posted.get("error"):
-        raise VKApiError(posted.get("error"))
+    wall_post = response.json()
+    if wall_post.get("error"):
+        raise VKApiError(wall_post.get("error"))
 
-    return posted
+    return wall_post
 
 
 def publish(
@@ -93,7 +98,14 @@ def publish(
 ):
     upload_url = get_upload_url(group_id, access_token, api_version)
     uploaded_photo = upload_photo(upload_url, file_path)
-    saved_photos = save_wall_photo(group_id, access_token, api_version, uploaded_photo)
+    saved_photos = save_wall_photo(
+        group_id,
+        access_token,
+        api_version,
+        uploaded_photo["server"],
+        uploaded_photo["hash"],
+        uploaded_photo["photo"]
+    )
     create_wall_post(
         group_id,
         access_token,
