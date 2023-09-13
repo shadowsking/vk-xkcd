@@ -20,11 +20,11 @@ def get_upload_url(group_id: str, access_token: str, api_version: str) -> str:
     )
     response.raise_for_status()
 
-    uploaded_url = response.json()
-    if uploaded_url.get("error"):
-        raise VKApiError(uploaded_url.get("error"))
+    upload_address = response.json()
+    if upload_address.get("error"):
+        raise VKApiError(upload_address.get("error"))
 
-    return uploaded_url["response"].get("upload_url")
+    return upload_address["response"].get("upload_url")
 
 
 def upload_photo(upload_url: str, file_path: str) -> dict:
